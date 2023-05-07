@@ -62,9 +62,7 @@ func encrypt(publicKey *PublicKey, message *big.Int) (*big.Int, error) {
 	}
 
 	square := calculateNSquare(publicKey.n)
-
 	r := generateRandomR(publicKey.n)
-
 	c1 := new(big.Int).Exp(publicKey.g, message, square)
 	c2 := new(big.Int).Exp(r, publicKey.n, square)
 	ciphertext := new(big.Int).Mul(c1, c2)
@@ -79,9 +77,7 @@ Decrypts ciphertext
 func decrypt(privateKey *PrivateKey, ciphertext, n *big.Int) *big.Int {
 	logger.Println("Message decryption...")
 
-	square := calculateNSquare(n)
-
-	decipheredMessage := new(big.Int).Exp(ciphertext, privateKey.lambda, square)
+	decipheredMessage := new(big.Int).Exp(ciphertext, privateKey.lambda, calculateNSquare(n))
 	L(decipheredMessage, n)
 	decipheredMessage.Mul(decipheredMessage, privateKey.u)
 	decipheredMessage.Mod(decipheredMessage, n)
@@ -94,25 +90,28 @@ Generates randomly two large prime numbers p and q,
 such that gcd(pq,(p-1)*(q-1)) == 1
 */
 func generatePrimes(bits int) (*big.Int, *big.Int) {
-	p, q := new(big.Int), new(big.Int)
+	logger.Println("Generating two large prime numbers p and q...")
+	p, q, isPrime := new(big.Int), new(big.Int), true
 	var err1, err2 error = nil, nil
 
 	for {
 		p, err1 = rand.Prime(rand.Reader, bits)
-		isPrime := p.ProbablyPrime(bits)
+		logger.Println("Checking if generated p is really a prime number...")
+		isPrime = p.ProbablyPrime(bits)
 
 		if err1 != nil || !isPrime {
 			logger.Printf("generatePrime: err1 = %v, isPrime = %v", err1, isPrime)
 		}
 
 		q, err2 = rand.Prime(rand.Reader, bits)
+		logger.Println("Checking if generated q is really a prime number...")
 		isPrime = q.ProbablyPrime(bits)
 
 		if err2 != nil || !isPrime {
 			logger.Printf("generatePrime: err2 = %v, isPrime = %v", err2, isPrime)
 		}
 
-		// gcd == 1
+		// check if gcd == 1
 		if checkGCD(p, q) {
 			break
 		}
@@ -182,14 +181,14 @@ func multiplyCiphertext(ciphertext, num, n *big.Int) *big.Int {
 }
 
 func main() {
-	bits := 1024
+	bits := 2048
 	privateKey, publicKey := generateKeys(bits)
 
 	/*
 		Encrypt two plaintexts
 	*/
 
-	logger.Printf("Encrypt two plaintexts")
+	logger.Printf("\n## Encrypt two plaintexts ##")
 
 	message1 := big.NewInt(1234)
 	logger.Printf("Message to encrypt: %v\n", message1)
@@ -206,7 +205,7 @@ func main() {
 	decipheredMessage1 := decrypt(privateKey, ciphertext1, publicKey.n)
 	logger.Printf("Decrypted message: %v\n", decipheredMessage1)
 
-	message2 := big.NewInt(1)
+	message2 := big.NewInt(222)
 	logger.Printf("Message to encrypt: %v\n", message2)
 
 	ciphertext2, err2 := encrypt(publicKey, message2)
@@ -219,22 +218,37 @@ func main() {
 	//logger.Printf("ciphertext: %v\n", ciphertext2)
 
 	decipheredMessage2 := decrypt(privateKey, ciphertext2, publicKey.n)
-	logger.Printf("Decrypted message: %v\n", decipheredMessage2)
+	logger.Printf("Decrypted message: %v\n\n", decipheredMessage2)
 
 	/*
 		Addition of two ciphertexts
 	*/
 
-	logger.Printf("Addition of two ciphertexts:")
+	logger.Printf("## Addition of two ciphertexts ##")
+
+	expectedResult := new(big.Int).Add(message1, message2)
 	ciphertextsSum := addCiphertexts(ciphertext1, ciphertext2, publicKey.n)
-	decryptedSum := decrypt(privateKey, ciphertextsSum, publicKey.n)
-	logger.Printf("C(%v) + C(%v) = C(%v)\n", message1, message2, decryptedSum)
+	decryptedResult := decrypt(privateKey, ciphertextsSum, publicKey.n)
+
+	if decryptedResult.Cmp(expectedResult) == 0 {
+		logger.Printf("C(%v) + C(%v) = C(%v)\n\n", message1, message2, decryptedResult)
+	} else {
+		logger.Println("Addition went wrong!")
+	}
 
 	/*
 		Multiplication of a ciphertext by a plaintext number
 	*/
-	logger.Printf("Multiplication of a ciphertext by a plaintext number:")
+
+	logger.Printf("## Multiplication of a ciphertext by a plaintext number ##")
+
+	expectedResult = new(big.Int).Mul(message1, TWO)
 	multipliedCiphertext := multiplyCiphertext(ciphertext1, TWO, publicKey.n)
-	decryptedResult := decrypt(privateKey, multipliedCiphertext, publicKey.n)
-	logger.Printf("C(%v) * %v = C(%v)\n", message1, TWO, decryptedResult)
+	decryptedResult = decrypt(privateKey, multipliedCiphertext, publicKey.n)
+
+	if decryptedResult.Cmp(expectedResult) == 0 {
+		logger.Printf("C(%v) * %v = C(%v)\n", message1, TWO, decryptedResult)
+	} else {
+		logger.Println("Multiplication went wrong!")
+	}
 }
