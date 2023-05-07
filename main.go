@@ -172,10 +172,16 @@ func L(x, n *big.Int) {
 	x.Div(x.Sub(x, ONE), n)
 }
 
+/*
+Adds two ciphertextx together
+*/
 func addCiphertexts(ciphertext1, ciphertext2, n *big.Int) *big.Int {
 	return new(big.Int).Mod(new(big.Int).Mul(ciphertext1, ciphertext2), calculateNSquare(n))
 }
 
+/*
+Multiplicates ciphertext by a plaintext number
+*/
 func multiplyCiphertext(ciphertext, num, n *big.Int) *big.Int {
 	return new(big.Int).Exp(ciphertext, num, calculateNSquare(n))
 }
